@@ -1,0 +1,79 @@
+#!/bin/bash
+# Vinicius Knob
+
+
+USAGE=$(cat << EOF
+Usage: ${0##*/} [OPTIONS...]
+
+Extension for git tag.
+
+Available options are
+    -h, --help           show help
+    -p, --prune          remove all local tags and fetch the actives
+    -o, --obliterate     delete tag from local and remote
+EOF
+)
+
+
+die() {
+    printf '%s\n' "$1" >&2
+    exit 1
+}
+
+
+target_tag=0
+
+
+while :; do
+    case $1 in
+        -h|-\?|--help)
+            echo "$USAGE"
+            exit
+            ;;
+        -p|--prune)
+            option="prune"
+            shift
+            ;;
+        -o|--obliterate)
+            if [ "$2" ]; then
+                target_tag="$2"
+            else
+                die 'ERROR: "--obliterate" requires a non-empty option argument'
+            fi
+            option="obliterate"
+            shift
+            ;;
+        --)              # End of all options.
+            shift
+            break
+            ;;
+        -?*)
+            printf 'WARN: unknown option (ignored): %s\n' "$1" >&2
+            ;;
+        *)               # Default case: No more options, so break out of the loop.
+            break
+    esac
+    shift
+done
+
+
+# https://stackoverflow.com/questions/1841341/remove-local-git-tags-that-are-no-longer-on-the-remote-repository
+if [ "$option" == "prune" ]
+then
+    printf '\nRemoving local tags...'
+    git tag --list | xargs git tag --delete
+
+    printf '\nFetching active tags...'
+    git fetch --tags
+fi
+
+
+# https://git-scm.com/book/en/v2/Git-Basics-Tagging
+if [ "$option" == "obliterate" ]
+then
+    printf 'Removing remote...'
+    git push origin --delete "$target_tag"
+
+    printf 'Removing local...'
+    git tag --delete "$target_tag"
+fi
